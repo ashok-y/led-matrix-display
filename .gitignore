@@ -1,0 +1,8 @@
+venv/*
+rpi-rgb-led-matrix/*
+*.pyc
+__pycache__/
+*.png
+.spotify_cache
+rgbmatrix
+config/config.json
