@@ -9,21 +9,15 @@ import datetime
 from collections import defaultdict
 
 class WeatherApp(MatrixApp):
-    def __init__(self):
+    def __init__(self,config):
         super().__init__()
-        self.config = json.load(open("./config/config.json"))
+        self.config = config
         self.api_key = self.config.get("weather", {}).get("api_key", "")
         if self.api_key == "":
             print("Warning: No API key found for WeatherApp. Please add it to config.json.")
         self.city = self.config.get("weather", {}).get("city", "Cedar City") # Change this to your city
         
         self.cities = self.config.get("weather", {}).get("cities", ["Cedar City"])
-
-        self.brightness = self.config.get("brightness", 125)
-        # Colors
-        self.temp_color = graphics.Color(self.brightness, 165, 0) # Orange
-        self.city_color = graphics.Color(100, 100, self.brightness) # Light Blue
-        self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
         
         self.data = defaultdict(defaultdict) # city -> weather data dict
         self.icons = defaultdict(lambda: None) # city -> processed PIL Image for icon
@@ -45,7 +39,6 @@ class WeatherApp(MatrixApp):
         while True:
             try:
                 for city in self.cities:
-                    print(f"Fetching weather for {city}...")
                     # units=imperial for Fahrenheit, units=metric for Celsius
                     url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={self.api_key}&units=imperial"
                     response = requests.get(url).json()
@@ -88,6 +81,12 @@ class WeatherApp(MatrixApp):
 
 
     def render(self, canvas, font, small_font, y_offset=0):
+        self.brightness = self.config.get("brightness", 125)
+        # Colors
+        self.temp_color = graphics.Color(self.brightness, 165, 0) # Orange
+        self.city_color = graphics.Color(100, 100, self.brightness) # Light Blue
+        self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
+
         if not self.data:
             return
                 

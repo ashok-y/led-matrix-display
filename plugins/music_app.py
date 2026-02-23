@@ -28,11 +28,7 @@ class MusicApp(MatrixApp):
         self.current_track = None
         self.album_img = None
         self.last_track_id = None
-        self.brightness = self.config.get("brightness", 125)
-        self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
-        self.bg_color = graphics.Color(40, 40, 40)    # Dark Grey
-        self.bar_color = graphics.Color(29, 185, 84) # Spotify Green
-
+        
     def update(self):
         """Fetch Spotify data every 5 seconds"""
         while True:
@@ -89,6 +85,12 @@ class MusicApp(MatrixApp):
         return f"{minutes}:{seconds:02d}"
 
     def render(self, canvas, font, small_font, y_offset=0):
+        self.brightness = int(self.config.get("brightness", 125))
+        self.brightness = self.config.get("brightness", 125)
+        self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
+        self.bg_color = graphics.Color(40, 40, 40)    # Dark Grey
+        self.bar_color = graphics.Color(29, 185, 84) # Spotify Green
+
         if not self.current_track:
             graphics.DrawText(canvas, small_font, 30, y_offset + 32, self.white, "Spotify Idle")
             return

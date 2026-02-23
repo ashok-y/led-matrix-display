@@ -5,12 +5,10 @@ from rgbmatrix import graphics
 from base_app import MatrixApp
 
 class DualClockApp(MatrixApp):
-    def __init__(self):
+    def __init__(self,config):
         super().__init__()
         # Configure your cities and their UTC offsets here
-        self.city1 = {"name": "Cedar City", "offset": -7} # MST
-        self.city2 = {"name": "Guntur", "offset": +5.5}    # IST (India Standard Time)
-        self.config = json.load(open("config/config.json"))
+        self.config = config
         self.cities = self.config.get("clock", {}).get("cities", [])
         self.brightness = self.config.get("brightness", 125)
         self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
@@ -50,7 +48,8 @@ class DualClockApp(MatrixApp):
 
     def render(self, canvas, font, small_font, y_offset=0):
         now = time.time()
-        
+        self.brightness = int(self.config.get("brightness", 125))
+        self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
         # Calculate how many "pages" (pairs) we have
         # Using math.ceil for odd numbers of cities
         num_cities = len(self.cities)

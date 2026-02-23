@@ -4,7 +4,7 @@ import yfinance as yf
 from base_app import MatrixApp
 from rgbmatrix import graphics
 
-class StockApp(MatrixApp):
+class StocksApp(MatrixApp):
     def __init__(self,config):
         super().__init__()
         self.config = config
@@ -17,10 +17,7 @@ class StockApp(MatrixApp):
         self.last_switch_time = time.time()
         self.is_transitioning = False
         self.local_push = 0
-        self.brightness = self.config.get("brightness", 125)
-        self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
-        self.green = graphics.Color(0, self.brightness, 0)
-        self.red = graphics.Color(self.brightness, 0, 0)
+        
 
     def update(self):
         """Background thread: Refresh data every 5 mins"""
@@ -48,7 +45,12 @@ class StockApp(MatrixApp):
 
     def render(self, canvas, font, small_font, y_offset=0):
         if not self.data: return
-        
+
+        self.brightness = self.config.get("brightness", 125)
+        self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
+        self.green = graphics.Color(0, self.brightness, 0)
+        self.red = graphics.Color(self.brightness, 0, 0)
+
         now = time.time()
         
         # 1. Check if we need to START a transition

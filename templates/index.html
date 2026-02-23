@@ -57,9 +57,13 @@
                         endif %} onchange="updateSetting('clock.enabled', this.checked)">
                     <label class="form-check-label">World Clock</label>
                 </div>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" id="weather" {% if config.weather.enabled
+                        %}checked{% endif %} onchange="updateSetting('weather.enabled', this.checked)">
+                    <label class="form-check-label">Weather Display</label>
+                </div>
             </div>
         </div>
-    </div>
     </div>
 
     <script>
@@ -71,7 +75,7 @@
             // Update the brightness label UI if applicable
             if (key.includes('brightness')) {
                 const label = document.getElementById('brightVal');
-                if (label) label.innerText = value;
+                if (label) label.innerText = parseInt(value);
             }
 
             console.log(`Sending update: ${key} = ${valToSend}`);
