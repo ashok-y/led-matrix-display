@@ -12,7 +12,7 @@ class DualClockApp(MatrixApp):
         self.city2 = {"name": "Guntur", "offset": +5.5}    # IST (India Standard Time)
         self.config = json.load(open("config/config.json"))
         self.cities = self.config.get("clock", {}).get("cities", [])
-        self.brightness = self.config.get("clock", {}).get("brightness", 125)
+        self.brightness = self.config.get("brightness", 125)
         self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
         self.cyan = graphics.Color(0, self.brightness, self.brightness)
         self.dim_gray = graphics.Color(50, 50, 50)

@@ -5,9 +5,9 @@ from base_app import MatrixApp
 from rgbmatrix import graphics
 
 class StockApp(MatrixApp):
-    def __init__(self):
+    def __init__(self,config):
         super().__init__()
-        self.config = json.load(open("./config/config.json"))
+        self.config = config
 
         self.tickers = self.config.get("stocks", {}).get("tickers", ["AAPL", "GOOGL", "AMZN", "META", "NFLX", "TSLA"])
         # Animation State
@@ -17,7 +17,7 @@ class StockApp(MatrixApp):
         self.last_switch_time = time.time()
         self.is_transitioning = False
         self.local_push = 0
-        self.brightness = self.config.get("stocks", {}).get("brightness", 125)
+        self.brightness = self.config.get("brightness", 125)
         self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
         self.green = graphics.Color(0, self.brightness, 0)
         self.red = graphics.Color(self.brightness, 0, 0)

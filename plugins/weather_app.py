@@ -19,7 +19,7 @@ class WeatherApp(MatrixApp):
         
         self.cities = self.config.get("weather", {}).get("cities", ["Cedar City"])
 
-        self.brightness = self.config.get("weather", {}).get("brightness", 125)
+        self.brightness = self.config.get("brightness", 125)
         # Colors
         self.temp_color = graphics.Color(self.brightness, 165, 0) # Orange
         self.city_color = graphics.Color(100, 100, self.brightness) # Light Blue

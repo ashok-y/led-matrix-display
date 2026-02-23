@@ -9,10 +9,10 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
 class MusicApp(MatrixApp):
-    def __init__(self):
+    def __init__(self, config):
         super().__init__()
         # Load Spotify credentials from config
-        self.config = json.load(open("./config/config.json"))
+        self.config = config
         self.spotify_cfg = self.config.get("music", {})
         
         # Initialize Auth Manager with your existing cache
@@ -28,7 +28,7 @@ class MusicApp(MatrixApp):
         self.current_track = None
         self.album_img = None
         self.last_track_id = None
-        self.brightness = self.spotify_cfg.get("brightness", 125)
+        self.brightness = self.config.get("brightness", 125)
         self.white = graphics.Color(self.brightness, self.brightness, self.brightness)
         self.bg_color = graphics.Color(40, 40, 40)    # Dark Grey
         self.bar_color = graphics.Color(29, 185, 84) # Spotify Green
