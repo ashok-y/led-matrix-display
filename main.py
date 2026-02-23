@@ -8,7 +8,15 @@ from base_app import MatrixApp
 
 # --- Configuration & Hardware Setup ---
 options = RGBMatrixOptions()
-options.rows, options.cols, options.chain_length = 32, 64, 2
+options.rows = 32
+options.cols = 128
+options.chain_length = 1
+options.parallel = 1
+
+# REDUCE FLICKER FLAGS:
+options.gpio_slowdown = 4   # Essential for Pi 4/5
+options.drop_privileges = False # Helps maintain timing control
+options.pwm_lsb_nanoseconds = 130 # Smooths out the brightness steps
 options.hardware_mapping = 'adafruit-hat'
 matrix = RGBMatrix(options = options)
 canvas = matrix.CreateFrameCanvas()
@@ -30,7 +38,7 @@ def load_plugins():
     
     for str_file in os.listdir(plugin_dir):
         # Your filter: starts with 'm', ends with '.py'
-        if str_file.endswith(".py") and str_file != "__init__.py" and str_file.startswith("m"):
+        if str_file.endswith(".py") and str_file != "__init__.py":
             path = os.path.join(plugin_dir, str_file)
             try:
                 # Use a unique module name for each plugin

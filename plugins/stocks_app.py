@@ -89,10 +89,10 @@ class StockApp(MatrixApp):
             status_color = self.green if d['up'] else self.red
             
             graphics.DrawText(canvas, font, 2, frame_y + 12, self.white, sym)
+            graphics.DrawText(canvas, font, 2, frame_y + 26, self.white, d['price'])
             self.draw_arrow(canvas, 92, frame_y + 5, d['up'], status_color)
             graphics.DrawText(canvas, small_font, 100, frame_y + 11, status_color, d['pct'])
-            graphics.DrawText(canvas, font, 2, frame_y + 26, self.white, d['price'])
-            graphics.DrawText(canvas, small_font, 85, frame_y + 25, status_color, d['move'])
+            graphics.DrawText(canvas, small_font, 55, frame_y + 11, status_color, d['move'])
             self.draw_sparkline(canvas, d['history'], frame_y, status_color)
 
     def draw_arrow(self, canv, x, y, is_up, color):
