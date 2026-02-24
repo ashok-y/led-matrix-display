@@ -17,6 +17,12 @@ class WeatherApp(MatrixApp):
         
         self.data = defaultdict(defaultdict)
         self.icons = defaultdict(lambda: None)
+        
+        # Load fonts once
+        self.small_font = graphics.Font()
+        self.small_font.LoadFont("/home/pi/rpi-rgb-led-matrix/fonts/4x6.bdf")
+        self.medium_font = graphics.Font()
+        self.medium_font.LoadFont("/home/pi/rpi-rgb-led-matrix/fonts/6x12.bdf")
 
         self.is_transitioning = False
         self.local_push = 0
@@ -25,7 +31,7 @@ class WeatherApp(MatrixApp):
         self.last_switch_time = time.time()
 
     def get_color(self, r, g, b):
-        """Scales RGB values by the global brightness config."""
+        """Helper to scale any RGB color by the global brightness config."""
         brightness = int(self.config.get("brightness", 125))
         scale = brightness / 255.0
         return graphics.Color(int(r * scale), int(g * scale), int(b * scale))
@@ -38,18 +44,17 @@ class WeatherApp(MatrixApp):
                     url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={self.api_key}&units=imperial"
                     response = requests.get(url).json()
                     if response.get("main"):
-                        weather_item = response["weather"][0]
-                        self.data[city] = {
-                            "description": weather_item["main"],
-                            "temp": response["main"]["temp"],
-                            "humidity": response["main"]["humidity"],
-                            "wind": response["wind"]["speed"],
-                            "sunset": response["sys"]["sunset"],
-                            "timezone": response["timezone"],
-                            "current_time": response["dt"]
-                        }
+                        # Restore all data features
+                        self.data[city]["description"] = response["weather"][0]["main"]
+                        self.data[city]["temp"] = response["main"]["temp"]
+                        self.data[city]["humidity"] = response["main"]["humidity"]
+                        self.data[city]["wind"] = response["wind"]["speed"]
+                        self.data[city]["sunrise"] = response["sys"]["sunrise"]
+                        self.data[city]["sunset"] = response["sys"]["sunset"]
+                        self.data[city]["timezone"] = response["timezone"]
+                        self.data[city]["current_time"] = response["dt"]
                         
-                        icon_code = weather_item['icon']
+                        icon_code = response['weather'][0]['icon']
                         icon_url = f"http://openweathermap.org/img/wn/{icon_code}@2x.png"
                         img_res = requests.get(icon_url, stream=True)
                         img = Image.open(io.BytesIO(img_res.content)).convert('RGBA')
@@ -63,18 +68,16 @@ class WeatherApp(MatrixApp):
             time.sleep(900)
 
     def render(self, canvas, font, small_font, y_offset=0):
-        if not self.data:
-            return
+        if not self.data: return
 
-        # 1. Define Dynamic Colors
+        # 1. Setup Dynamic Colors
         white = self.get_color(255, 255, 255)
-        temp_color = self.get_color(255, 165, 0)  # Orange
+        temp_color = self.get_color(255, 165, 0) # Orange
         city_color = self.get_color(100, 100, 255) # Light Blue
-        dim_gray = self.get_color(50, 50, 50)
-        
+        line_color = self.get_color(50, 50, 50)
         brightness_scale = int(self.config.get("brightness", 125)) / 255.0
 
-        # 2. Transition Logic
+        # 2. Transition Logic (64px slide)
         now = time.time()
         if not self.is_transitioning:
             if (now - self.last_switch_time) >= 6:
@@ -86,7 +89,7 @@ class WeatherApp(MatrixApp):
                     self.last_switch_time = now
 
         if self.is_transitioning:
-            self.local_push += 4
+            self.local_push += 4 
             if self.local_push >= 64:
                 self.current_idx = self.next_idx
                 self.is_transitioning = False
@@ -95,39 +98,42 @@ class WeatherApp(MatrixApp):
 
         # 3. Drawing Loop
         display_indices = [self.current_idx, self.next_idx] if self.is_transitioning else [self.current_idx]
-        
         for i, idx in enumerate(display_indices):
             city_name = self.cities[idx]
             if city_name not in self.data: continue
             
             y_base = 0 if i == 0 else 64
             frame_y = y_offset + y_base - self.local_push
-
             d = self.data[city_name]
             timezone_offset = d.get("timezone", 0)
+            
+            # --- Restored Time Calculations ---
             current_time = datetime.datetime.utcfromtimestamp(d.get("current_time", 0) + timezone_offset).strftime("%I:%M %p")
-            sunset_time = datetime.datetime.utcfromtimestamp(d.get("sunset", 0) + timezone_offset).strftime("%I:%M %p")
+            sunset_dt = datetime.datetime.utcfromtimestamp(d.get("sunset", 0) + timezone_offset)
+            sunset_time = sunset_dt.strftime("%I:%M %p")
 
-            # Header
-            graphics.DrawText(canvas, small_font, 2, frame_y + 8, city_color, city_name[:12])
-            graphics.DrawText(canvas, small_font, 85, frame_y + 8, white, current_time)
-            graphics.DrawLine(canvas, 0, frame_y + 10, 127, frame_y + 10, dim_gray)
+            # --- SECTION 1: HEADER ---
+            graphics.DrawText(canvas, self.small_font, 2, frame_y + 8, city_color, city_name[:12])
+            graphics.DrawText(canvas, self.small_font, 80, frame_y + 8, white, current_time)
+            graphics.DrawLine(canvas, 0, frame_y + 10, 127, frame_y + 10, line_color)
 
-            # Icon Rendering (with brightness scaling)
+            # --- SECTION 2: ICON (with Brightness Scaling) ---
             if self.icons[city_name]:
+                icon_img = self.icons[city_name]
                 for y in range(32):
                     for x in range(32):
-                        r, g, b = self.icons[city_name].getpixel((x, y))
-                        if r > 10 or g > 10 or b > 10: # Only draw non-black pixels
+                        r, g, b = icon_img.getpixel((x, y))
+                        if r > 30 or g > 30 or b > 30:
                             canvas.SetPixel(x - 5, y + frame_y + 12, int(r * brightness_scale), int(g * brightness_scale), int(b * brightness_scale))
 
-            # Temperature & Description
+            # --- SECTION 3: CENTER (Temp & Desc) ---
             temp = d.get("temp", 0)
             temp_str = f"{int(temp)}F/{(temp - 32) * 5/9:.1f}C"
-            graphics.DrawText(canvas, font, 30, frame_y + 28, white, temp_str)
-            graphics.DrawText(canvas, small_font, 30, frame_y + 38, city_color, d.get("description", "Clear"))
+            graphics.DrawText(canvas, self.medium_font, 24, frame_y + 22, white, temp_str)
+            graphics.DrawText(canvas, self.small_font, 24, frame_y + 32, city_color, d.get("description", "Clear"))
 
-            # Footer Data
-            graphics.DrawLine(canvas, 0, frame_y + 44, 127, frame_y + 44, dim_gray)
-            hum_wind = f"H:{d.get('humidity')}% W:{int(d.get('wind'))}mph"
-            graphics.DrawText(canvas, small_font, 5, frame_y
+            # --- SECTION 4: FOOTER (Humidity, Wind, Sunset) ---
+            graphics.DrawLine(canvas, 0, frame_y + 46, 127, frame_y + 46, line_color)
+            hum_wind = f"{d.get('humidity')}% {int(d.get('wind'))}mph"
+            graphics.DrawText(canvas, self.small_font, 80, frame_y + 18, temp_color, hum_wind)
+            graphics.DrawText(canvas, self.small_font, 80, frame_y + 28, temp_color, f"SS:{sunset_time}")

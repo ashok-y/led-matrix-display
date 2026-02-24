@@ -20,6 +20,11 @@ class DualClockApp(MatrixApp):
         self.next_idx = 0
         self.last_switch_time = time.time()
     
+    def update(self):
+        """No background data fetching needed..."""
+        while True:
+            time.sleep(1)
+
     def update_colors(self):
         """Calculates all colors relative to the brightness config."""
         b = int(self.config.get("brightness", 125))
