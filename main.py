@@ -26,10 +26,25 @@ class MatrixController:
         self.small_font.LoadFont("/fonts/5x8.bdf")
         self.config_path = "/home/pi/workspace/led_matrix/config/config.json"
         
+        # Colors for status
+        self.white = graphics.Color(255, 255, 255)
+        self.blue = graphics.Color(0, 120, 255)
+
         # 3. Load Initial State
+        self.show_loading_status("INITIALIZING...")
         self.config = self.load_config()
         self.apps = self.load_plugins()
         self.current_app_idx = 0
+        self.last_config_read = 0
+
+    def show_loading_status(self, message, sub_message="Please wait..."):
+        """Displays a splash screen during startup/loading."""
+        self.canvas.Clear()
+        # Draw a simple blue border line
+        graphics.DrawLine(self.canvas, 0, 0, 127, 0, self.blue)
+        graphics.DrawText(self.canvas, self.font, 10, 14, self.white, message)
+        graphics.DrawText(self.canvas, self.small_font, 10, 26, self.blue, sub_message)
+        self.canvas = self.matrix.SwapOnVSync(self.canvas)
 
     def load_config(self):
         try:
@@ -42,103 +57,96 @@ class MatrixController:
     def load_plugins(self):
         apps = []
         plugin_dir = "/home/pi/workspace/led_matrix/plugins"
-        for str_file in os.listdir(plugin_dir):
-            if str_file.endswith(".py") and str_file != "__init__.py":
-                path = os.path.join(plugin_dir, str_file)
-                module_name = f"plugin_{str_file[:-3]}"
-                spec = importlib.util.spec_from_file_location(module_name, path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                
-                for name in dir(module):
-                    obj = getattr(module, name)
-                    if isinstance(obj, type) and hasattr(obj, 'render') and obj.__name__ != "MatrixApp":
-                        # We pass 'self.config' to the app so it's reactive!
-                        apps.append(obj(self.config)) 
+        files = [f for f in os.listdir(plugin_dir) if f.endswith(".py") and f != "__init__.py"]
+        
+        for str_file in files:
+            app_name = str_file[:-3].upper()
+            self.show_loading_status("LOADING PLUGINS", f"Plugin: {app_name}")
+            
+            path = os.path.join(plugin_dir, str_file)
+            module_name = f"plugin_{str_file[:-3]}"
+            spec = importlib.util.spec_from_file_location(module_name, path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            
+            for name in dir(module):
+                obj = getattr(module, name)
+                if isinstance(obj, type) and hasattr(obj, 'render') and obj.__name__ != "MatrixApp":
+                    apps.append(obj(self.config)) 
         return apps
 
+    def get_app_key(self, app_instance):
+        """Helper to map Class Names to Config Keys."""
+        mapping = {
+            "dualclockapp": "clock",
+            "weatherapp": "weather",
+            "stocksapp": "stocks",
+            "musicapp": "music"
+        }
+        return mapping.get(app_instance.__class__.__name__.lower(), "")
+
     def run(self):
-        # Start background threads for each app's data updates
+        # Start background threads
         for app in self.apps:
+            app_name = app.__class__.__name__
+            self.show_loading_status("STARTING DATA", f"Thread: {app_name}")
             threading.Thread(target=app.update, daemon=True).start()
 
-        self.last_config_read = 0
+        self.show_loading_status("SYSTEM READY", "Starting loop...")
+        time.sleep(1)
 
         while True:
-            # 1. REFRESH CONFIG & FIND VALID APP
+            # 1. Refresh Config
             self.config.update(self.load_config())
             
-            current_app = self.apps[self.current_app_idx]
-            print(f"Current App: {current_app.__class__.__name__}")
-            app_key_dict = {
-                "dualclockapp": "clock",
-                "weatherapp": "weather",
-                "stocksapp": "stocks",
-                "musicapp": "music"
-             }
-            app_key = app_key_dict.get(current_app.__class__.__name__.lower(), "")     
-            
-            # Check if current app is enabled
-            app_cfg = self.config.get(app_key, {})
-            enabled_status = self.config.get(app_key, {}).get('enabled')
-            print(f"Checking App: {current_app.__class__.__name__} | Key: {app_key} | Enabled in JSON: {enabled_status}")
-            if not app_cfg.get('enabled', True):
-                print(f"Skipping {app_key} (disabled in config)")
-                self.current_app_idx = (self.current_app_idx + 1) % len(self.apps)
-                # If all apps are disabled, prevent high-speed looping
-                time.sleep(1) 
+            if not self.apps:
+                self.show_loading_status("ERROR", "No Plugins Found")
+                time.sleep(5)
                 continue
 
-            # 2. RUN PHASE (The active display time)
-            print(f"Showing {app_key} for 30 seconds...")
+            # 2. Validate Current App
+            current_app = self.apps[self.current_app_idx]
+            app_key = self.get_app_key(current_app)
+            
+            if not self.config.get(app_key, {}).get('enabled', True):
+                print(f"Skipping {app_key} (disabled)")
+                self.current_app_idx = (self.current_app_idx + 1) % len(self.apps)
+                time.sleep(0.1)
+                continue
+
+            # 3. Execution Phase
+            print(f"Displaying: {app_key}")
             start_time = time.time()
             while time.time() - start_time < 30:
-                # Refresh config every 1 second during the run to catch Web UI changes
+                # Refresh config every 1s for instant responsiveness to Web UI
                 if time.time() - self.last_config_read > 1:
                     self.config.update(self.load_config())
                     self.last_config_read = time.time()
 
-                # Re-check enabled status inside the loop for instant shut-off
-                app_cfg = self.config.get(app_key, {})
-                if not app_cfg.get('enabled', True):
-                    print(f"App {app_key} was disabled while running. Breaking...")
-                    break 
+                if not self.config.get(app_key, {}).get('enabled', True):
+                    break # Exit immediately if disabled while running
 
                 self.canvas.Clear()
-                # Render the app (ensure your plugins use self.config inside render!)
                 current_app.render(self.canvas, self.font, self.small_font, y_offset=0)
                 self.canvas = self.matrix.SwapOnVSync(self.canvas)
-                time.sleep(0.016) # ~60 FPS
+                time.sleep(0.016)
 
-            # 3. SEARCH FOR THE NEXT ENABLED APP
+            # 4. RESTORED: Find Next Enabled App
             next_idx = (self.current_app_idx + 1) % len(self.apps)
             search_count = 0
             
-            # Re-use your mapping dictionary here!
-            app_key_map = {
-                "dualclockapp": "clock",
-                "weatherapp": "weather",
-                "stocksapp": "stocks",
-                "musicapp": "music"
-            }
-
             while search_count < len(self.apps):
                 candidate_app = self.apps[next_idx]
-                # Use the map to get the key
-                c_name = candidate_app.__class__.__name__.lower()
-                candidate_key = app_key_map.get(c_name, "")
+                candidate_key = self.get_app_key(candidate_app)
                 
-                # Check config using the correct key
                 if self.config.get(candidate_key, {}).get('enabled', True):
                     break
                 else:
-                    print(f"Candidate {candidate_key} is disabled, skipping...")
                     next_idx = (next_idx + 1) % len(self.apps)
                     search_count += 1
 
-            # 4. UPDATE INDEX
             self.current_app_idx = next_idx
-            
+
 if __name__ == "__main__":
     controller = MatrixController()
     controller.run()

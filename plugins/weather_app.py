@@ -124,7 +124,8 @@ class WeatherApp(MatrixApp):
                     for x in range(32):
                         r, g, b = icon_img.getpixel((x, y))
                         if r > 30 or g > 30 or b > 30:
-                            canvas.SetPixel(x - 5, y + frame_y + 12, int(r * brightness_scale), int(g * brightness_scale), int(b * brightness_scale))
+                            canvas.SetPixel(x - 5, y + frame_y + 12, int(r * brightness_scale), \
+                                             int(g * brightness_scale), int(b * brightness_scale))
 
             # --- SECTION 3: CENTER (Temp & Desc) ---
             temp = d.get("temp", 0)

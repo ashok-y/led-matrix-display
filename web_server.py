@@ -48,6 +48,17 @@ def toggle_power():
 def index():
     return render_template('index.html', config=load_config())
 
+@app.route('/power-status', methods=['GET'])
+def get_power_status():
+    # This command searches the system process list for 'main.py'
+    # It returns 0 if found, 1 if not found
+    check = subprocess.run(["pgrep", "-f", "main.py"], capture_output=True)
+    
+    if check.returncode == 0:
+        return jsonify({"status": "on"})
+    else:
+        return jsonify({"status": "off"})
+
 @app.route('/update', methods=['POST'])
 def update():
     data = request.json

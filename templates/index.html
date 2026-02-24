@@ -69,12 +69,41 @@
                 });
         }
     </script>
+    <script>    // Run this when the page loads
+        document.addEventListener('DOMContentLoaded', (event) => {
+            checkInitialPower();
+        });
+
+        function checkInitialPower() {
+            fetch('/power-status')
+                .then(response => response.json())
+                .then(data => {
+                    const btn = document.getElementById('powerBtn');
+                    const statusSpan = document.getElementById('powerStatus');
+                    console.log("Initial power status from server:", data.status);
+                    // Sync the UI with the actual server state
+                    if (data.status === 'on') {
+                        btn.className = 'btn-on';
+                        statusSpan.innerText = 'ON';
+                        if (document.getElementById('masterPower'))
+                            document.getElementById('masterPower').checked = true;
+                    } else {
+                        btn.className = 'btn-off';
+                        statusSpan.innerText = 'OFF';
+                        if (document.getElementById('masterPower'))
+                            document.getElementById('masterPower').checked = false;
+                    }
+                });
+        }
+    </script>
+
     <div class="container">
         <h2 class="mb-4">Matrix Settings</h2>
 
         <div class="card">
             <div class="card-body">
-                <label class="form-label">Brightness: <span id="brightVal">{{ config.brightness }}</span>%</label>
+                <label class="form-label">Brightness: <span id="brightVal" data-raw="{{ config.brightness }}">{{
+                        (config.brightness / 255 * 100) | int }}</span>%</label>
                 <input type="range" class="form-range" min="1" max="255" value="{{ config.brightness }}"
                     id="brightSlider" oninput="updateSetting('brightness', this.value)">
             </div>
@@ -118,7 +147,7 @@
             // Update the brightness label UI if applicable
             if (key.includes('brightness')) {
                 const label = document.getElementById('brightVal');
-                if (label) label.innerText = parseInt(value);
+                if (label) label.innerText = Math.round((value / 255) * 100);
             }
 
             console.log(`Sending update: ${key} = ${valToSend}`);
