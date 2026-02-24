@@ -5,162 +5,268 @@
     <title>Matrix Control Center</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
         body {
-            background: #121212;
-            color: white;
-            padding: 20px;
+            background: #f5f5f5;
+            color: #222;
+            padding: 30px;
+            font-family: 'Segoe UI', sans-serif;
         }
 
         .card {
-            background: #1e1e1e;
-            border: 1px solid #333;
-            color: white;
-            margin-bottom: 20px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+            transition: 0.2s ease;
         }
 
-        .form-range::-webkit-slider-runnable-track {
-            background: #333;
+        .card:hover {
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .status-dot {
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .online {
+            background: #00aa00;
+        }
+
+        .offline {
+            background: #cc0000;
+        }
+
+        .form-switch .form-check-input:checked {
+            background-color: #00aa00;
+            border-color: #00aa00;
+        }
+
+        .symbol-pill {
+            background: #e0e0e0;
+            padding: 5px 10px;
+            border-radius: 20px;
+            margin: 4px;
+            display: inline-block;
+        }
+
+        .remove-btn {
+            color: #cc0000;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+
+        .toast-msg {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #fff;
+            border: 1px solid #00aa00;
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: none;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
 
 <body>
-    <div class="power-container">
-        <button id="powerBtn" onclick="togglePower()" class="btn-on">
-            Power: <span id="powerStatus">ON</span>
-        </button>
+    <div class="container">
+
+        <!-- HEADER -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Matrix Control Center</h2>
+            <div>
+                <span id="powerDot" class="status-dot offline"></span>
+                <strong id="powerLabel">Offline</strong>
+                <button class="btn btn-sm btn-outline-dark ms-3" onclick="togglePower()">Toggle Power</button>
+            </div>
+        </div>
+
+        <!-- BRIGHTNESS -->
+        <div class="card p-4 mb-4">
+            <div class="section-title">Brightness</div>
+            <input type="range" class="form-range" min="1" max="255" id="brightnessSlider">
+            <div class="mt-2"><span id="brightPercent">50</span>%</div>
+        </div>
+
+        <!-- WEATHER -->
+        <div class="card p-4 mb-4">
+            <div class="section-title">Weather</div>
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="weatherEnabled">
+                <label class="form-check-label">Enabled</label>
+            </div>
+            <select class="form-select" id="weatherCity"></select>
+        </div>
+
+        <!-- STOCKS -->
+        <div class="card p-4 mb-4">
+            <div class="section-title">Stock Ticker</div>
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="stocksEnabled">
+                <label class="form-check-label">Enabled</label>
+            </div>
+            <label>Update Interval (seconds)</label>
+            <input type="number" class="form-control mb-3" id="stocksInterval" min="10">
+            <div id="symbolContainer"></div>
+            <div class="input-group mt-3">
+                <input id="newSymbol" class="form-control" placeholder="Add symbol (e.g. AAPL)">
+                <button class="btn btn-outline-dark" onclick="addSymbol()">Add</button>
+            </div>
+        </div>
+
+        <!-- CLOCK -->
+        <div class="card p-4 mb-4">
+            <div class="section-title">World Clock</div>
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="clockEnabled">
+                <label class="form-check-label">Enabled</label>
+            </div>
+            <div id="clockCities"></div>
+        </div>
+
     </div>
 
-    <style>
-        .btn-on {
-            background-color: #2ecc71;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-        }
-
-        .btn-off {
-            background-color: #e74c3c;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
+    <div id="toast" class="toast-msg">Saved ✓</div>
 
     <script>
-        function togglePower() {
-            const status = document.getElementById('powerStatus').innerText;
-            const action = (status === 'ON') ? 'off' : 'on';
+        let config = {
+            brightness: 171,
+            weather: { enabled: true, city: "Cedar City", cities: ["Cedar City", "San Francisco", "New York", "Duba, Saudi Arabia", "Guntur, India"] },
+            stocks: { enabled: true, update_interval: 300, symbols: ["PL", "NVO", "BROS", "AMD", "WMT"] },
+            clock: { enabled: true, cities: [{ name: "Cedar City", offset: -7 }, { name: "Guntur", offset: 5.5 }, { name: "San Francisco", offset: -7 }, { name: "Riyadh", offset: 3 }] }
+        };
 
-            fetch('/power', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+        function initUI() {
+            // Brightness
+            const slider = document.getElementById("brightnessSlider");
+            slider.value = config.brightness;
+            document.getElementById("brightPercent").innerText = Math.round(config.brightness / 255 * 100);
+            slider.oninput = () => updateBrightness(slider.value);
+
+            // Weather
+            document.getElementById("weatherEnabled").checked = config.weather.enabled;
+            document.getElementById("weatherEnabled").onchange = e => updateSetting("weather.enabled", e.target.checked);
+            const weatherSelect = document.getElementById("weatherCity");
+            config.weather.cities.forEach(city => {
+                const opt = document.createElement("option");
+                opt.value = city; opt.innerText = city;
+                if (city === config.weather.city) opt.selected = true;
+                weatherSelect.appendChild(opt);
+            });
+            weatherSelect.onchange = e => updateSetting("weather.city", e.target.value);
+
+            // Stocks
+            document.getElementById("stocksEnabled").checked = config.stocks.enabled;
+            document.getElementById("stocksEnabled").onchange = e => updateSetting("stocks.enabled", e.target.checked);
+            document.getElementById("stocksInterval").value = config.stocks.update_interval;
+            document.getElementById("stocksInterval").onchange = e => updateSetting("stocks.update_interval", e.target.value);
+            renderSymbols(config.stocks.symbols);
+
+            // Clock
+            document.getElementById("clockEnabled").checked = config.clock.enabled;
+            document.getElementById("clockEnabled").onchange = e => updateSetting("clock.enabled", e.target.checked);
+            const clockDiv = document.getElementById("clockCities");
+            config.clock.cities.forEach(city => {
+                const div = document.createElement("div");
+                div.className = "d-flex justify-content-between";
+                div.innerHTML = `<div>${city.name}</div><div>UTC ${city.offset}</div>`;
+                clockDiv.appendChild(div);
+            });
+        }
+
+        /* -------- POWER -------- */
+        function togglePower() {
+            const label = document.getElementById("powerLabel").innerText;
+            const action = label === "Offline" ? "on" : "off";
+
+            fetch("/power", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: action })
             })
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('powerStatus').innerText = data.status.toUpperCase();
-                    document.getElementById('powerBtn').className = (data.status === 'on') ? 'btn-on' : 'btn-off';
-                });
-        }
-    </script>
-    <script>    // Run this when the page loads
-        document.addEventListener('DOMContentLoaded', (event) => {
-            checkInitialPower();
-        });
-
-        function checkInitialPower() {
-            fetch('/power-status')
-                .then(response => response.json())
-                .then(data => {
-                    const btn = document.getElementById('powerBtn');
-                    const statusSpan = document.getElementById('powerStatus');
-                    console.log("Initial power status from server:", data.status);
-                    // Sync the UI with the actual server state
-                    if (data.status === 'on') {
-                        btn.className = 'btn-on';
-                        statusSpan.innerText = 'ON';
-                        if (document.getElementById('masterPower'))
-                            document.getElementById('masterPower').checked = true;
-                    } else {
-                        btn.className = 'btn-off';
-                        statusSpan.innerText = 'OFF';
-                        if (document.getElementById('masterPower'))
-                            document.getElementById('masterPower').checked = false;
-                    }
-                });
-        }
-    </script>
-
-    <div class="container">
-        <h2 class="mb-4">Matrix Settings</h2>
-
-        <div class="card">
-            <div class="card-body">
-                <label class="form-label">Brightness: <span id="brightVal" data-raw="{{ config.brightness }}">{{
-                        (config.brightness / 255 * 100) | int }}</span>%</label>
-                <input type="range" class="form-range" min="1" max="255" value="{{ config.brightness }}"
-                    id="brightSlider" oninput="updateSetting('brightness', this.value)">
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Active Plugins</h5>
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="music" {% if config.music %}checked{% endif %}
-                        onchange="updateSetting('music.enabled', this.checked)">
-                    <label class="form-check-label">Spotify Monitor</label>
-                </div>
-
-                <div class="form-check form-switch mt-2">
-                    <input class="form-check-input" type="checkbox" id="stocks" {% if config.stocks.enabled %}checked{%
-                        endif %} onchange="updateSetting('stocks.enabled', this.checked)">
-                    <label class="form-check-label">Stock Ticker</label>
-                </div>
-
-                <div class="form-check form-switch mt-2">
-                    <input class="form-check-input" type="checkbox" id="clock" {% if config.clock.enabled %}checked{%
-                        endif %} onchange="updateSetting('clock.enabled', this.checked)">
-                    <label class="form-check-label">World Clock</label>
-                </div>
-                <div class="form-check form-switch mt-2">
-                    <input class="form-check-input" type="checkbox" id="weather" {% if config.weather.enabled
-                        %}checked{% endif %} onchange="updateSetting('weather.enabled', this.checked)">
-                    <label class="form-check-label">Weather Display</label>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function updateSetting(key, value) {
-            // If the element is a checkbox, 'value' might be a string. 
-            // We want to make sure we send true/false to the server.
-            let valToSend = value;
-
-            // Update the brightness label UI if applicable
-            if (key.includes('brightness')) {
-                const label = document.getElementById('brightVal');
-                if (label) label.innerText = Math.round((value / 255) * 100);
-            }
-
-            console.log(`Sending update: ${key} = ${valToSend}`);
-
-            fetch('/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: key, value: valToSend })
+            .then(res => res.json())
+            .then(data => {
+                // Server may return "on", "off", "already_on", "already_off"
+                if (data.status === "on" || data.status === "already_on") {
+                    updatePowerUI("on");
+                } else if (data.status === "off" || data.status === "already_off") {
+                    updatePowerUI("off");
+                }
             })
-                .then(response => response.json())
-                .then(data => console.log("Server response:", data))
-                .catch(err => console.error("Error:", err));
+            .catch(err => console.error("Power toggle failed", err));
         }
+
+        function updatePowerUI(status) {
+            const dot = document.getElementById("powerDot");
+            const label = document.getElementById("powerLabel");
+            if (status === "on") { dot.classList.replace("offline", "online"); label.innerText = "Online"; }
+            else { dot.classList.replace("online", "offline"); label.innerText = "Offline"; }
+        }
+
+        // Fetch initial power status
+        fetch("/power-status").then(r => r.json()).then(data => updatePowerUI(data.status));
+
+        /* -------- BRIGHTNESS -------- */
+        let brightnessTimeout;
+        function updateBrightness(val) {
+            document.getElementById("brightPercent").innerText = Math.round(val / 255 * 100);
+            clearTimeout(brightnessTimeout);
+            brightnessTimeout = setTimeout(() => updateSetting("brightness", val), 300);
+        }
+
+        /* -------- SYMBOLS -------- */
+        function renderSymbols(symbols) {
+            const container = document.getElementById("symbolContainer");
+            container.innerHTML = "";
+            symbols.forEach(s => {
+                const span = document.createElement("span");
+                span.className = "symbol-pill";
+                span.innerHTML = `${s} <span class="remove-btn" onclick="removeSymbol('${s}')">✕</span>`;
+                container.appendChild(span);
+            });
+        }
+        function addSymbol() {
+            const input = document.getElementById("newSymbol");
+            const val = input.value.trim().toUpperCase();
+            if (!val) return;
+            fetch("/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "stocks.add_symbol", value: val }) })
+                .then(r => r.json())
+                .then(data => { renderSymbols(data.symbols); input.value = ""; showToast(); });
+        }
+        function removeSymbol(val) {
+            fetch("/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "stocks.remove_symbol", value: val }) })
+                .then(r => r.json())
+                .then(data => { renderSymbols(data.symbols); showToast(); });
+        }
+
+        /* -------- TOAST -------- */
+        function showToast() {
+            const toast = document.getElementById("toast");
+            toast.style.display = "block";
+            setTimeout(() => { toast.style.display = "none" }, 1500);
+        }
+
+        /* -------- GENERIC UPDATE -------- */
+        function updateSetting(key, value) {
+            fetch("/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, value }) })
+                .then(r => r.json()).then(() => showToast());
+        }
+
+        window.onload = initUI;
     </script>
 </body>
 
