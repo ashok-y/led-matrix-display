@@ -27,15 +27,17 @@ class StocksApp(MatrixApp):
                     t = yf.Ticker(ticker)
                     fast = t.fast_info
                     hist_df = t.history(period="1d", interval="15m")
-                    
                     price = fast['last_price']
-                    change = price - fast['previous_close']
-                    
+                    prev_close = fast['previous_close']
+                    history = hist_df['Close'].tolist() if not hist_df.empty else []
+                    # Always use last price and previous close for change and pct
+                    change = price - prev_close
+                    pct = (change / prev_close) * 100 if prev_close != 0 else 0
                     self.data[ticker] = {
                         "price": f"${price:.2f}",
                         "move": f"{'+' if change >= 0 else ''}{change:.2f}",
-                        "pct": f"{abs((change / fast['previous_close']) * 100):.2f}%",
-                        "history": hist_df['Close'].tolist() if not hist_df.empty else [],
+                        "pct": f"{'+' if pct >= 0 else ''}{pct:.2f}%",
+                        "history": history,
                         "up": change >= 0
                     }
                 except Exception as e:
@@ -89,31 +91,45 @@ class StocksApp(MatrixApp):
             # --- Render Logic (Same as before) ---
             d = self.data[sym]
             status_color = self.green if d['up'] else self.red
-            
+            # Symbol
             graphics.DrawText(canvas, font, 2, frame_y + 12, self.white, sym)
+            # Price
             graphics.DrawText(canvas, font, 2, frame_y + 26, self.white, d['price'])
-            self.draw_arrow(canvas, 92, frame_y + 5, d['up'], status_color)
-            graphics.DrawText(canvas, small_font, 100, frame_y + 11, status_color, d['pct'])
-            graphics.DrawText(canvas, small_font, 55, frame_y + 11, status_color, d['move'])
+            
+            # Arrow
+            self.draw_arrow(canvas, 40, frame_y + 5, d['up'], status_color)
+            # Percentage and Change
+            graphics.DrawText(canvas, small_font, 45, frame_y + 11, status_color, d['move'])
+            graphics.DrawText(canvas, small_font, 75, frame_y + 11, status_color, d['pct'])
             self.draw_sparkline(canvas, d['history'], frame_y, status_color)
 
     def draw_arrow(self, canv, x, y, is_up, color):
+        # Draw a solid triangle up or down
+        size = 4
         if is_up:
-            graphics.DrawLine(canv, x-2, y+4, x, y, color)
-            graphics.DrawLine(canv, x, y, x+2, y+4, color)
-            graphics.DrawLine(canv, x-2, y+4, x+2, y+4, color)
+            # Upward solid triangle
+            for i in range(size):
+                graphics.DrawLine(canv, x - i, y + i, x + i, y + i, color)
         else:
-            graphics.DrawLine(canv, x-2, y, x, y+4, color)
-            graphics.DrawLine(canv, x, y+4, x+2, y, color)
-            graphics.DrawLine(canv, x-2, y, x+2, y, color)
+            # Downward solid triangle
+            for i in range(size):
+                graphics.DrawLine(canv, x - i, y + size - i, x + i, y + size - i, color)
+
 
     def draw_sparkline(self, canv, data, y_offset, color):
-        if not data or len(data) < 2: return
+        if not data or len(data) < 2:
+            return
         mn, mx = min(data), max(data)
-        rng = mx - mn if mx != mn else 1
+        # If all values are the same, draw a flat line in the middle
+        if mx == mn:
+            y = y_offset + 16
+            graphics.DrawLine(canv, 0, y, 127, y, color)
+            return
+        rng = mx - mn
         for i in range(len(data) - 1):
             x1 = int(i * (127 / (len(data)-1)))
-            y1 = (y_offset + 31) - int(((data[i] - mn) / rng) * 10)
+            # Use full 32-pixel height
+            y1 = y_offset + 31 - int(((data[i] - mn) / rng) * 31)
             x2 = int((i+1) * (127 / (len(data)-1)))
-            y2 = (y_offset + 31) - int(((data[i+1] - mn) / rng) * 10)
+            y2 = y_offset + 31 - int(((data[i+1] - mn) / rng) * 31)
             graphics.DrawLine(canv, x1, y1, x2, y2, color)
