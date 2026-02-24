@@ -34,7 +34,7 @@ class DualClockApp(MatrixApp):
         self.cyan = graphics.Color(0, b, b)
         
         # Adaptive Dim Colors (roughly 20-40% of max brightness)
-        dim_val = max(20, int(b * 0.4)) 
+        dim_val = max(10, int(b * 0.4)) 
         self.dim_gray = graphics.Color(dim_val, dim_val, dim_val)
 
     def get_city_time(self, offset):

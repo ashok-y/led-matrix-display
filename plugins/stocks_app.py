@@ -8,7 +8,7 @@ class StocksApp(MatrixApp):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.tickers = self.config.get("stocks", {}).get("tickers", ["AAPL", "GOOGL", "AMZN", "META", "NFLX", "TSLA"])
+        self.tickers = self.config.get("stocks", {}).get("tickers", [])
         self.data = {} # Ensure data dict is initialized
         
         # Animation State
