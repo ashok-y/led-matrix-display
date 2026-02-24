@@ -26,13 +26,56 @@
 </head>
 
 <body>
+    <div class="power-container">
+        <button id="powerBtn" onclick="togglePower()" class="btn-on">
+            Power: <span id="powerStatus">ON</span>
+        </button>
+    </div>
+
+    <style>
+        .btn-on {
+            background-color: #2ecc71;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-off {
+            background-color: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+
+    <script>
+        function togglePower() {
+            const status = document.getElementById('powerStatus').innerText;
+            const action = (status === 'ON') ? 'off' : 'on';
+
+            fetch('/power', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('powerStatus').innerText = data.status.toUpperCase();
+                    document.getElementById('powerBtn').className = (data.status === 'on') ? 'btn-on' : 'btn-off';
+                });
+        }
+    </script>
     <div class="container">
         <h2 class="mb-4">Matrix Settings</h2>
 
         <div class="card">
             <div class="card-body">
                 <label class="form-label">Brightness: <span id="brightVal">{{ config.brightness }}</span>%</label>
-                <input type="range" class="form-range" min="1" max="100" value="{{ config.brightness }}"
+                <input type="range" class="form-range" min="1" max="255" value="{{ config.brightness }}"
                     id="brightSlider" oninput="updateSetting('brightness', this.value)">
             </div>
         </div>
