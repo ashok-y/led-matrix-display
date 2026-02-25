@@ -37,14 +37,19 @@ class WeatherApp(MatrixApp):
         return graphics.Color(int(r * scale), int(g * scale), int(b * scale))
 
     def update(self):
-        """Background thread: Fetch weather every 15 minutes"""
+        """Background thread: Fetch weather every 15 minutes with conditional logging"""
+        import traceback
         while True:
+            debug = self.config.get("weather", {}).get("debug", False)
+            if debug:
+                print("[WeatherApp] Starting weather data refresh cycle...")
             try:
                 for city in self.cities:
+                    if debug:
+                        print(f"[WeatherApp] Fetching weather for city: {city}")
                     url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={self.api_key}&units=imperial"
                     response = requests.get(url).json()
                     if response.get("main"):
-                        # Restore all data features
                         self.data[city]["description"] = response["weather"][0]["main"]
                         self.data[city]["temp"] = response["main"]["temp"]
                         self.data[city]["humidity"] = response["main"]["humidity"]
@@ -53,18 +58,23 @@ class WeatherApp(MatrixApp):
                         self.data[city]["sunset"] = response["sys"]["sunset"]
                         self.data[city]["timezone"] = response["timezone"]
                         self.data[city]["current_time"] = response["dt"]
-                        
+                        if debug:
+                            print(f"[WeatherApp] Updated {city}: temp={self.data[city]['temp']}, desc={self.data[city]['description']}, humidity={self.data[city]['humidity']}, wind={self.data[city]['wind']}")
                         icon_code = response['weather'][0]['icon']
                         icon_url = f"http://openweathermap.org/img/wn/{icon_code}@2x.png"
                         img_res = requests.get(icon_url, stream=True)
                         img = Image.open(io.BytesIO(img_res.content)).convert('RGBA')
                         img = img.resize((32, 32), Image.NEAREST) 
-                        
                         clean_bg = Image.new("RGB", (32, 32), (0, 0, 0))
                         clean_bg.paste(img, (0, 0), img) 
                         self.icons[city] = clean_bg
             except Exception as e:
-                print(f"Weather Fetch Error: {e}")
+                if debug:
+                    print(f"[WeatherApp] Fetch Error: {e}")
+                    tb = traceback.format_exc()
+                    print(f"[WeatherApp] Traceback:\n{tb}")
+            if debug:
+                print("[WeatherApp] Data refresh cycle complete. Sleeping for 15 minutes.")
             time.sleep(900)
 
     def render(self, canvas, font, small_font, y_offset=0):
@@ -113,7 +123,7 @@ class WeatherApp(MatrixApp):
             sunset_time = sunset_dt.strftime("%I:%M %p")
 
             # --- SECTION 1: HEADER ---
-            graphics.DrawText(canvas, self.small_font, 2, frame_y + 8, city_color, city_name[:12])
+            graphics.DrawText(canvas, self.small_font, 2, frame_y + 8, city_color, city_name)
             graphics.DrawText(canvas, self.small_font, 80, frame_y + 8, white, current_time)
             graphics.DrawLine(canvas, 0, frame_y + 10, 127, frame_y + 10, line_color)
 
@@ -124,14 +134,14 @@ class WeatherApp(MatrixApp):
                     for x in range(32):
                         r, g, b = icon_img.getpixel((x, y))
                         if r > 30 or g > 30 or b > 30:
-                            canvas.SetPixel(x - 5, y + frame_y + 12, int(r * brightness_scale), \
+                            canvas.SetPixel(x - 5, y + frame_y + 3 , int(r * brightness_scale), \
                                              int(g * brightness_scale), int(b * brightness_scale))
 
             # --- SECTION 3: CENTER (Temp & Desc) ---
             temp = d.get("temp", 0)
             temp_str = f"{int(temp)}F/{(temp - 32) * 5/9:.1f}C"
             graphics.DrawText(canvas, self.medium_font, 24, frame_y + 22, white, temp_str)
-            graphics.DrawText(canvas, self.small_font, 24, frame_y + 32, city_color, d.get("description", "Clear"))
+            graphics.DrawText(canvas, self.small_font, 24, frame_y + 30, city_color, d.get("description", "Clear"))
 
             # --- SECTION 4: FOOTER (Humidity, Wind, Sunset) ---
             graphics.DrawLine(canvas, 0, frame_y + 46, 127, frame_y + 46, line_color)

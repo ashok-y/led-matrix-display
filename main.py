@@ -57,7 +57,7 @@ class MatrixController:
     def load_plugins(self):
         apps = []
         plugin_dir = "/home/pi/workspace/led_matrix/plugins"
-        files = [f for f in os.listdir(plugin_dir) if f.endswith(".py") and f != "__init__.py"]
+        files = [f for f in os.listdir(plugin_dir) if f.endswith(".py") and f != "__init__.py" and not f.startswith("m")]
         
         for str_file in files:
             app_name = str_file[:-3].upper()

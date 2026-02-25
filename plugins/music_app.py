@@ -35,13 +35,18 @@ class MusicApp(MatrixApp):
         return graphics.Color(int(r * scale), int(g * scale), int(b * scale))
 
     def update(self):
+        import traceback
         while True:
+            debug = self.config.get("music", {}).get("debug", False)
+            if debug:
+                print("[MusicApp] Starting Spotify data refresh cycle...")
             try:
                 track = self.sp.currently_playing()
+                if debug:
+                    print(f"[MusicApp] Spotify API response: {track}")
                 if track and track.get('item'):
                     item = track['item']
                     track_id = item['id']
-                    
                     self.current_track = {
                         "name": item['name'],
                         "artist": item['artists'][0]['name'],
@@ -49,18 +54,30 @@ class MusicApp(MatrixApp):
                         "duration": item['duration_ms'],
                         "is_playing": track['is_playing']
                     }
-
+                    if debug:
+                        print(f"[MusicApp] Updated track: {self.current_track}")
                     if track_id != self.last_track_id:
                         album_url = item['album']['images'][0]['url']
+                        if debug:
+                            print(f"[MusicApp] Fetching album art from: {album_url}")
                         res = requests.get(album_url)
                         img = Image.open(io.BytesIO(res.content)).convert('RGB')
                         self.album_img = img.resize((32, 32), Image.NEAREST)
                         self.last_track_id = track_id
+                        if debug:
+                            print(f"[MusicApp] Album art updated for track_id: {track_id}")
                 else:
                     self.current_track = None
+                    if debug:
+                        print("[MusicApp] No track currently playing or no item found.")
             except Exception as e:
-                print(f"Spotify Update Error: {e}")
-            time.sleep(1)
+                if debug:
+                    print(f"[MusicApp] Spotify Update Error: {e}")
+                    tb = traceback.format_exc()
+                    print(f"[MusicApp] Traceback:\n{tb}")
+            if debug:
+                print("[MusicApp] Data refresh cycle complete. Sleeping for 5 seconds.")
+            time.sleep(5)
 
     def draw_spotify_logo(self, canvas, x, y):
         # Using scaled Spotify Green
@@ -94,14 +111,7 @@ class MusicApp(MatrixApp):
             graphics.DrawText(canvas, small_font, 40, y_offset + 16, white, "Spotify Idle")
             return
 
-        # 2. Draw Album Art (Left 32x32)
-        if self.album_img:
-            # Note: We apply brightness to the pixels manually here
-            brightness_scale = int(self.config.get("brightness", 125)) / 255.0
-            for y in range(32):
-                for x in range(32):
-                    r, g, b = self.album_img.getpixel((x, y))
-                    canvas.SetPixel(x, y + y_offset, int(r * brightness_scale), int(g * brightness_scale), int(b * brightness_scale))
+        
 
         # 3. Text Scrolling Config
         win_left = 36    # Start after album art + gap
@@ -118,18 +128,30 @@ class MusicApp(MatrixApp):
         else:
             x_pos = win_left
 
-        # Render Text
+
+        # Render Text 
         graphics.DrawText(canvas, small_font, x_pos, y_offset + 10, white, self.current_track['name'])
         graphics.DrawText(canvas, small_font, win_left, y_offset + 18, green, self.current_track['artist'])
-
+        
         # 5. Masking (Cleans up scrolling text over album art and logo)
         # Vertical slice for album art is 0-32, we mask just the text area
-        for y in range(y_offset, y_offset + 12): # Only mask the track name line
+        # Mask both the track name and artist lines
+        for y in range(y_offset -5 , y_offset + 32): # Covers both lines
             for x in range(0, win_left): # Left Mask
-                if x < 32: continue # Don't erase the album art itself
+                if x < 32:
+                    canvas.SetPixel(x, y, 0, 0, 0)  
                 canvas.SetPixel(x, y, 0, 0, 0)
             for x in range(win_right, 128): # Right Mask
                 canvas.SetPixel(x, y, 0, 0, 0)
+
+        # 2. Draw Album Art (Left 32x32)
+        if self.album_img:
+            # Note: We apply brightness to the pixels manually here
+            brightness_scale = int(self.config.get("brightness", 125)) / 255.0
+            for y in range(32):
+                for x in range(32):
+                    r, g, b = self.album_img.getpixel((x, y))
+                    canvas.SetPixel(x, y + y_offset, int(r * brightness_scale), int(g * brightness_scale), int(b * brightness_scale))
 
         # 6. Spotify Logo
         self.draw_spotify_logo(canvas, 116, y_offset + 2)

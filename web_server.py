@@ -3,7 +3,7 @@ import subprocess
 import signal
 import json
 import os
-
+import logging
 app = Flask(__name__)
 CONFIG_FILE = "config/config.json"
 logging.basicConfig(level=logging.DEBUG)
@@ -99,7 +99,50 @@ def get_power_status():
         return jsonify({"status": "on"})
     return jsonify({"status": "off"})
 
+@app.route("/spotify/current")
+def spotify_current():
+    token = config["music"]["spotify_access_token"]
 
+    headers = {"Authorization": f"Bearer {token}"}
+
+    r = requests.get(
+        "https://api.spotify.com/v1/me/player/currently-playing",
+        headers=headers
+    )
+
+    if r.status_code != 200 or not r.content:
+        return jsonify({})
+
+    data = r.json()
+
+    if not data or not data.get("item"):
+        return jsonify({})
+
+    return jsonify({
+        "track": data["item"]["name"],
+        "artist": data["item"]["artists"][0]["name"],
+        "is_playing": data["is_playing"]
+    })
+
+@app.route("/spotify/control", methods=["POST"])
+def spotify_control():
+    action = request.json.get("action")
+    token = config["music"]["spotify_access_token"]
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    base = "https://api.spotify.com/v1/me/player"
+
+    if action == "play":
+        requests.put(f"{base}/play", headers=headers)
+    elif action == "pause":
+        requests.put(f"{base}/pause", headers=headers)
+    elif action == "next":
+        requests.post(f"{base}/next", headers=headers)
+    elif action == "previous":
+        requests.post(f"{base}/previous", headers=headers)
+
+    return jsonify({"status": "ok"})
 # -------------------------
 # UPDATE CONFIG
 # -------------------------

@@ -25,9 +25,15 @@ class StocksApp(MatrixApp):
         return graphics.Color(int(r * scale), int(g * scale), int(b * scale))
 
     def update(self):
-        """Background thread: Refresh data every 5 mins"""
+        """Background thread: Refresh data every 5 mins with conditional logging"""
+        import traceback
         while True:
+            debug = self.config.get("stocks", {}).get("debug", False)
+            if debug:
+                print("[StocksApp] Starting data refresh cycle...")
             for ticker in self.tickers:
+                if debug:
+                    print(f"[StocksApp] Fetching data for ticker: {ticker}")
                 try:
                     t = yf.Ticker(ticker)
                     fast = t.fast_info
@@ -35,7 +41,6 @@ class StocksApp(MatrixApp):
                     price = fast['last_price']
                     prev_close = fast['previous_close']
                     history = hist_df['Close'].tolist() if not hist_df.empty else []
-                    
                     change = price - prev_close
                     pct = (change / prev_close) * 100 if prev_close != 0 else 0
                     self.data[ticker] = {
@@ -45,9 +50,19 @@ class StocksApp(MatrixApp):
                         "history": history,
                         "up": change >= 0
                     }
+                    if debug:
+                        print(f"[StocksApp] Updated {ticker}: price={price}, prev_close={prev_close}, change={change}, pct={pct}")
                 except Exception as e:
-                    print(f"Fetch Error {ticker}: {e}")
-                time.sleep(0.5) 
+                    if debug:
+                        print(f"[StocksApp] Fetch Error for {ticker}: {e}")
+                        tb = traceback.format_exc()
+                        print(f"[StocksApp] Traceback for {ticker}:\n{tb}")
+                        # Check for rate/request limit in exception message
+                        if any(word in str(e).lower() for word in ["rate limit", "request limit", "retry", "429"]):
+                            print(f"[StocksApp] Rate/request limit likely hit for {ticker}. Exception: {e}")
+                time.sleep(0.5)
+            if debug:
+                print("[StocksApp] Data refresh cycle complete. Sleeping for 5 minutes.")
             time.sleep(300)
 
     def render(self, canvas, font, small_font, y_offset=0):

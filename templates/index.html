@@ -137,7 +137,27 @@
             </div>
             <div id="clockCities"></div>
         </div>
+        <!-- MUSIC (Spotify) -->
+        <div class="card p-4 mb-4">
+            <div class="section-title">Spotify Music</div>
 
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="musicEnabled">
+                <label class="form-check-label">Enabled</label>
+            </div>
+
+            <div class="mb-3">
+                <strong>Now Playing:</strong>
+                <div id="nowPlaying">Nothing playing</div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-dark" onclick="spotifyControl('previous')">⏮</button>
+                <button class="btn btn-outline-dark" onclick="spotifyControl('play')">▶</button>
+                <button class="btn btn-outline-dark" onclick="spotifyControl('pause')">⏸</button>
+                <button class="btn btn-outline-dark" onclick="spotifyControl('next')">⏭</button>
+            </div>
+        </div>
     </div>
 
     <div id="toast" class="toast-msg">Saved ✓</div>
@@ -186,6 +206,13 @@
                 div.innerHTML = `<div>${city.name}</div><div>UTC ${city.offset}</div>`;
                 clockDiv.appendChild(div);
             });
+            // Music
+            document.getElementById("musicEnabled").checked = config.music.enabled;
+            document.getElementById("musicEnabled").onchange =
+                e => updateSetting("music.enabled", e.target.checked);
+
+            fetchNowPlaying();
+            setInterval(fetchNowPlaying, 5000);
         }
 
         /* -------- POWER -------- */
@@ -265,7 +292,34 @@
             fetch("/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, value }) })
                 .then(r => r.json()).then(() => showToast());
         }
+        /* -------- SPOTIFY -------- */
 
+        function spotifyControl(action) {
+            fetch("/spotify/control", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action })
+            })
+            .then(r => r.json())
+            .then(data => {
+                fetchNowPlaying();
+                showToast();
+            });
+        }
+
+        function fetchNowPlaying() {
+            fetch("/spotify/current")
+                .then(r => r.json())
+                .then(data => {
+                    if (!data || !data.track) {
+                        document.getElementById("nowPlaying").innerText = "Nothing playing";
+                        return;
+                    }
+
+                    document.getElementById("nowPlaying").innerText =
+                        `${data.track} — ${data.artist}`;
+                });
+        }
         window.onload = initUI;
     </script>
 </body>
