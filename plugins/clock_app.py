@@ -1,6 +1,10 @@
 import time
 import json
 import datetime
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except ImportError:
+    from pytz import timezone as ZoneInfo  # fallback for older Python
 from rgbmatrix import graphics
 from base_app import MatrixApp
 
@@ -37,9 +41,21 @@ class DualClockApp(MatrixApp):
         dim_val = max(10, int(b * 0.4)) 
         self.dim_gray = graphics.Color(dim_val, dim_val, dim_val)
 
-    def get_city_time(self, offset):
-        now_utc = datetime.datetime.now(datetime.timezone.utc)
-        return now_utc + datetime.timedelta(hours=offset)
+    def get_city_time(self, city):
+        # Prefer timezone if present, else fallback to offset
+        tz_name = city.get("timezone")
+        if tz_name:
+            try:
+                # zoneinfo (Python 3.9+)
+                now = datetime.datetime.now(ZoneInfo(tz_name))
+            except Exception:
+                # fallback: UTC if zoneinfo fails
+                now = datetime.datetime.now(datetime.timezone.utc)
+        else:
+            offset = city.get("offset", 0)
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            now = now_utc + datetime.timedelta(hours=offset)
+        return now
     
     def draw_clock_pair(self, canvas, font, small_font, cities, y_pos):
         if len(cities) > 1:
@@ -48,11 +64,11 @@ class DualClockApp(MatrixApp):
 
         for i, city in enumerate(cities):
             x_start = 2 if i == 0 else 68
-            city_time = self.get_city_time(city.get("offset", 0))
-            
+            city_time = self.get_city_time(city)
+
             # City Name (Cyan)
             graphics.DrawText(canvas, small_font, x_start, y_pos + 10, self.cyan, city.get("name", "Unknown")[:10])
-            
+
             # Time and AM/PM (White)
             t_str = city_time.strftime("%I:%M")
             graphics.DrawText(canvas, font, x_start, y_pos + 26, self.white, t_str)
